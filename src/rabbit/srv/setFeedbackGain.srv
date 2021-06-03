@@ -1,0 +1,4 @@
+int64 left_gain
+int64 right_gain
+---
+int8 result

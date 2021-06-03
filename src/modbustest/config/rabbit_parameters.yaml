@@ -1,0 +1,6 @@
+rabbit: {cmd_vel_time_out_disable: 0, cmd_vel_time_out: 10}
+mmotor: {motor_slaveid: 3, motor_registers_count: 6, motor_registers_start_address: 0, ml_enindex: 0, ml_dirindex: 1, ml_pwmindex: 2, mr_enindex: 3, mr_dirindex: 4, mr_pwmindex: 5}
+control: {mlkp: 0.08, mlkd: 0.001, mlkw: 0.0, mrkp: 0.08, mrkd: 0.001, mrkw: 0.0}
+mencoder: {m1encoder_slaveid: 53, m2encoder_slaveid: 51, m3encoder_slaveid: 0, m4encoder_slaveid: 0,m1encoder_index: 8, m2encoder_index: 8, m3encoder_index: 8, m4encoder_index: 8}
+mvoltage: {slaveid: 3, index: 0}
+msharp: {sharp_slaveid: 51, sharp_index: 0}

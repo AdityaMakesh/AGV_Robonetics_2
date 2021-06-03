@@ -1,0 +1,4 @@
+int64 left_damping
+int64 right_damping
+---
+int8 result

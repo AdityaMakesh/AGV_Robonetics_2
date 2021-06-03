@@ -1,0 +1,515 @@
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <stdio.h>
+#include <string>
+#include <netinet/in.h>
+#include <sys/types.h>
+#include <rabbit/OpenInterface.h>
+
+// *****************************************************************************
+// Constructor
+//psgrobot::OpenInterface::OpenInterface(const char * new_serial_port)
+
+psgrobot::OpenInterface::OpenInterface(const char * new_serial_port_a, const char * new_serial_port_b)
+{	
+	port_name_a = new_serial_port_a;
+	port_name_b = new_serial_port_b;
+
+	//OImode_ = OI_MODE_OFF;
+	
+	this->resetOdometry();
+	
+	encoder_counts_[LEFT] = -1;
+	encoder_counts_[RIGHT] = -1;
+	
+	last_encoder_counts_[LEFT] = 0;
+	last_encoder_counts_[RIGHT] = 0;
+	
+	num_of_packets_ = 0;
+	sensor_packets_ = NULL;
+	packets_size_ = 0;
+	
+	// Default packets
+	//OI_Packet_ID default_packets[2] = {OI_PACKET_POSITION_ENCODER_1, OI_PACKET_POSITION_ENCODER_2};
+	//this->setSensorPackets(default_packets, 2, OI_PACKET_POSITION_ENCODER_1_SIZE + OI_PACKET_POSITION_ENCODER_2_SIZE);
+//	this->setcharSensorPackets(_Opcodes, 2, _Opcode_Buffer_Size);
+
+	serial_port_a = new sereal::SerealPort();
+	serial_port_b = new sereal::SerealPort();
+}
+
+
+// *****************************************************************************
+// Destructor
+psgrobot::OpenInterface::~OpenInterface()
+{
+	// Clean up!
+	delete serial_port_a;
+	delete serial_port_b;
+}
+
+
+// *****************************************************************************
+// Open the serial port
+int psgrobot::OpenInterface::openSerialPort(bool full_control)
+{
+	try{ serial_port_a->open(port_name_a.c_str(), 9600); serial_port_b->open(port_name_b.c_str(), 9600); }
+	catch(sereal::Exception& e){ return(-1); }
+
+	this->startOI(full_control);
+
+	return(0);
+}
+
+// *****************************************************************************
+// Close the serial port
+int psgrobot::OpenInterface::closeSerialPort()
+{
+	this->drive(0.0, 0.0);
+	usleep(OI_DELAY_MODECHANGE_MS * 1e3);
+
+	try{ serial_port_a->close(); serial_port_b->close(); }
+	catch(sereal::Exception& e){ return(-1); }
+
+	return(0);
+}
+
+
+// *****************************************************************************
+// Set the mode
+int psgrobot::OpenInterface::startOI(bool full_control)
+{	
+	char buffer[1];
+
+	usleep(OI_DELAY_MODECHANGE_MS * 1e3);
+//	buffer[0] = (char)OI_OPCODE_START;
+	try{ serial_port_a->write(buffer, 1); }
+	catch(sereal::Exception& e){ return(-1); }
+//	OImode_ = OI_MODE_PASSIVE;
+
+	usleep(OI_DELAY_MODECHANGE_MS * 1e3);
+//	buffer[0] = (char)OI_OPCODE_CONTROL;
+	try{ serial_port_a->write(buffer, 1); }
+	catch(sereal::Exception& e){ return(-1); }
+//	OImode_ = OI_MODE_SAFE;
+	
+	if(full_control)
+	{
+		usleep(OI_DELAY_MODECHANGE_MS * 1e3);
+//		buffer[0] = (char)OI_OPCODE_FULL;
+		try{ serial_port_a->write(buffer, 1); }
+		catch(sereal::Exception& e){ return(-1); }
+//		OImode_ = OI_MODE_FULL;
+	}
+	return(0);
+}
+
+
+
+
+// *****************************************************************************
+// Send an OP code to the EYANTRA
+int psgrobot::OpenInterface::sendOpcode(OI_Opcode code)
+{
+	char to_send = code;
+	try{ serial_port_a->write(&to_send, 1); }
+	catch(sereal::Exception& e){ return(-1); }
+	return(0);
+}
+
+
+// *****************************************************************************
+// Power down the EYANTRA
+int psgrobot::OpenInterface::powerDown()
+{
+	return sendOpcode(OI_OPCODE_POWER);
+}
+
+
+// *****************************************************************************
+// Set the speeds
+int psgrobot::OpenInterface::drive(double linear_speed, double angular_speed)
+{
+	int left_speed_mm_s = (int)((linear_speed-EYANTRA_AXLE_LENGTH*angular_speed/2)*1e3);		// Left wheel velocity in mm/s
+	int right_speed_mm_s = (int)((linear_speed+EYANTRA_AXLE_LENGTH*angular_speed/2)*1e3);	// Right wheel velocity in mm/s
+	
+	return this->driveDirect(left_speed_mm_s, right_speed_mm_s);
+}
+
+
+// *****************************************************************************
+// Set the motor speeds
+int psgrobot::OpenInterface::driveDirect(int left_speed, int right_speed)
+{
+	// Limit velocity
+	int16_t left_speed_mm_s = MAX(left_speed, -EYANTRA_MAX_LIN_VEL_MM_S);
+	left_speed_mm_s = MIN(left_speed, EYANTRA_MAX_LIN_VEL_MM_S);
+	int16_t right_speed_mm_s = MAX(right_speed, -EYANTRA_MAX_LIN_VEL_MM_S);
+	right_speed_mm_s = MIN(right_speed, EYANTRA_MAX_LIN_VEL_MM_S);
+	
+	// Compose comand
+	char cmd_buffer[5];
+//	cmd_buffer[0] = (char)OI_OPCODE_DRIVE_DIRECT;
+	cmd_buffer[1] = (char)(right_speed_mm_s >> 8);
+	cmd_buffer[2] = (char)(right_speed_mm_s & 0xFF);
+	cmd_buffer[3] = (char)(left_speed_mm_s >> 8);
+	cmd_buffer[4] = (char)(left_speed_mm_s & 0xFF);
+
+	try{ serial_port_a->write(cmd_buffer, 5); }
+	catch(sereal::Exception& e){ return(-1); }
+
+	return(0);
+}
+
+
+// *****************************************************************************
+// Set the motor PWMs
+int psgrobot::OpenInterface::drivePWM(int left_pwm, int right_pwm)
+{
+	// TODO: Not yet implemented... Doesnt really matter.
+	return(-1);
+}
+
+
+// *****************************************************************************
+// Set the brushes motors PWMs
+int psgrobot::OpenInterface::brushesPWM(char main_brush, char side_brush, char vacuum)
+{
+	// TODO: Not yet implemented... Doesnt really matter.
+	return(-1);
+}
+
+
+// *****************************************************************************
+// Set the sensors to read
+int psgrobot::OpenInterface::setSensorPackets(OI_Packet_ID * new_sensor_packets, int new_num_of_packets, size_t new_buffer_size)
+{
+	if(sensor_packets_ == NULL)
+	{
+		delete [] sensor_packets_;
+	}
+	
+	num_of_packets_ = new_num_of_packets;
+	isensor_packets_ = new OI_Packet_ID[num_of_packets_];
+	
+	for(int i=0 ; i<num_of_packets_ ; i++)
+	{
+		isensor_packets_[i] = new_sensor_packets[i];
+	}
+
+	stream_defined_ = false;
+	packets_size_ = new_buffer_size;
+	return(0);
+}
+
+int psgrobot::OpenInterface::setcharSensorPackets(char * new_sensor_packets, int new_num_of_packets, int new_buffer_size)
+{
+	if(sensor_packets_ == NULL)
+	{
+		delete [] sensor_packets_;
+	}
+	
+	num_of_packets_ = new_num_of_packets;
+	sensor_packets_ = new char[num_of_packets_];
+	
+	for(int i=0 ; i<num_of_packets_ ; i++)
+	{
+		sensor_packets_[i] = new_sensor_packets[i];
+	}
+
+	stream_defined_ = false;
+	packets_size_ = new_buffer_size;
+	return(0);
+}
+
+// *****************************************************************************
+// Read the sensors
+int psgrobot::OpenInterface::getSensorPackets(int timeout)
+{
+	char cmd_buffer[num_of_packets_+2];
+	char data_buffer[packets_size_];
+
+	// Fill in the command buffer to send to the robot
+	//cmd_buffer[0] = (char)OI_OPCODE_QUERY;			// Query
+
+	cmd_buffer[1] = num_of_packets_;				// Number of packets
+
+//	std::cout<<"\r\nT:"<<(int)cmd_buffer[0]<<"  "<<(int)cmd_buffer[1]<<"  "<<(int)cmd_buffer[2]<<"  "<<(int)cmd_buffer[3];
+
+	for(int i=0 ; i<num_of_packets_ ; i++)
+	{
+		cmd_buffer[i+2] = sensor_packets_[i];		// The packet IDs
+	}
+
+	try{ serial_port_a->write(cmd_buffer, num_of_packets_+2); }
+	catch(sereal::Exception& e){ return(-1); }
+	
+	try{ serial_port_a->readBytes(data_buffer, packets_size_, timeout); }
+	catch(sereal::Exception& e){ return(-1); }
+	
+	return this->parseSensorPackets((unsigned char*)data_buffer, packets_size_);
+}
+
+
+// *****************************************************************************
+// Read the sensors stream
+int psgrobot::OpenInterface::streamSensorPackets()
+{
+	char data_buffer[packets_size_];
+
+	if(!stream_defined_)
+	{
+		char cmd_buffer[num_of_packets_+2];
+
+		// Fill in the command buffer to send to the robot
+//		cmd_buffer[0] = (char)OI_OPCODE_STREAM;			// Stream
+		cmd_buffer[1] = num_of_packets_;				// Number of packets
+		for(int i=0 ; i<num_of_packets_ ; i++)
+		{
+			cmd_buffer[i+2] = sensor_packets_[i];		// The packet IDs
+		}
+		try{ serial_port_a->write(cmd_buffer, num_of_packets_+2); }
+		catch(sereal::Exception& e){ return(-1); }
+		stream_defined_ = true;
+	}
+	try{ serial_port_a->readBytes(data_buffer, packets_size_, 100); }
+	catch(sereal::Exception& e){ return(-1); }
+	
+	return this->parseSensorPackets((unsigned char*)data_buffer, packets_size_);
+}
+
+int psgrobot::OpenInterface::startStream()
+{
+	char data_buffer[2];
+
+//	data_buffer[0] = OI_OPCODE_PAUSE_STREAM;
+	data_buffer[1] = 1;
+
+	try{ serial_port_a->write(data_buffer, 2); }
+	catch(sereal::Exception& e){ return(-1); }
+	return(0);
+}
+
+int psgrobot::OpenInterface::stopStream()
+{
+	char data_buffer[2];
+
+//	data_buffer[0] = OI_OPCODE_PAUSE_STREAM;
+	data_buffer[1] = 0;
+
+	try{ serial_port_a->write(data_buffer, 2); }
+	catch(sereal::Exception& e){ return(-1); }
+	return(0);
+}
+
+
+// *****************************************************************************
+// Parse sensor data
+int psgrobot::OpenInterface::parseSensorPackets(unsigned char * buffer , size_t buffer_length)
+{	
+	if(buffer_length != packets_size_)
+	{
+		// Error wrong packet size
+		return(-1);
+	}
+
+	int i = 0;
+	unsigned int index = 0;
+	
+	//std::cout<<"\r\nR:"<<(int)buffer[0]<<"  "<<(int)buffer[1]<<"  "<<(int)buffer[2]<<"  "<<(int)buffer[3];
+
+	while(index < packets_size_)
+	{
+		if(sensor_packets_[i]==OI_PACKET_POSITION_ENCODER_1)
+		{
+			index += parseLeftEncoderCounts(buffer, index);
+			i++;
+		}
+		if(sensor_packets_[i]==OI_PACKET_POSITION_ENCODER_2)
+		{
+			index += parseRightEncoderCounts(buffer, index);
+			i++;
+		}
+		if(sensor_packets_[i]==OI_PACKET_POSITION_ENCODER_3)
+		{
+			index += parseDistance(buffer, index);
+			i++;
+		}
+		if(sensor_packets_[i]==OI_PACKET_POSITION_ENCODER_4)
+		{
+			index += parseDistance(buffer, index);
+			i++;
+		}		
+	}
+	return(0);
+}
+
+int psgrobot::OpenInterface::parseButtons(unsigned char * buffer, int index)
+{
+	// Buttons
+//	for(int i=0 ; i<8 ; i++) this->buttons_[i] = (buffer[index] >> i) & 0x01;
+	
+	return 0;
+}
+	
+int psgrobot::OpenInterface::parseDistance(unsigned char * buffer, int index)
+{
+	// Distance
+	this->distance_ = buffer2signed_int(buffer, index);
+	
+	return 0;
+}
+
+int psgrobot::OpenInterface::parseAngle(unsigned char * buffer, int index)
+{
+	// Angle
+	this->angle_ = buffer2signed_int(buffer, index);
+
+	return 0;
+}
+	
+int psgrobot::OpenInterface::parseChargingState(unsigned char * buffer, int index)
+{
+	// Charging State
+//	unsigned char byte = buffer[index];
+	
+//	this->power_cord_ = (byte >> 0) & 0x01;
+//	this->dock_ = (byte >> 1) & 0x01;
+
+	return 0;
+}
+
+int psgrobot::OpenInterface::parseVoltage(unsigned char * buffer, int index)
+{
+	// Voltage
+//	this->voltage_ = (float)(buffer2unsigned_int(buffer, index) / 1000.0);
+
+	return 0;
+}
+
+int psgrobot::OpenInterface::parseCurrent(unsigned char * buffer, int index)
+{
+	// Current
+//	this->current_ = (float)(buffer2signed_int(buffer, index) / 1000.0);
+
+	return 0;
+}
+
+int psgrobot::OpenInterface::parseRightEncoderCounts(unsigned char * buffer, int index)
+{
+	// Right encoder counts
+	uint16_t right_encoder_counts = buffer2unsigned_int(buffer, index);
+
+//	std::cout<<"\r\nRight Encoder:"<<right_encoder_counts;
+
+	if(encoder_counts_[RIGHT] == -1 || right_encoder_counts == last_encoder_counts_[RIGHT])	// First time, we need 2 to make it work!
+	{
+		encoder_counts_[RIGHT] = 0;
+	}
+	else
+	{
+		encoder_counts_[RIGHT] = (int)(right_encoder_counts - last_encoder_counts_[RIGHT]);
+		
+		if(encoder_counts_[RIGHT] > EYANTRA_MAX_ENCODER_COUNTS/10) encoder_counts_[RIGHT] = encoder_counts_[RIGHT] - EYANTRA_MAX_ENCODER_COUNTS;
+		if(encoder_counts_[RIGHT] < -EYANTRA_MAX_ENCODER_COUNTS/10) encoder_counts_[RIGHT] = EYANTRA_MAX_ENCODER_COUNTS + encoder_counts_[RIGHT];
+	}
+	last_encoder_counts_[RIGHT] = right_encoder_counts;
+	
+	return 0;
+}
+
+int psgrobot::OpenInterface::parseLeftEncoderCounts(unsigned char * buffer, int index)
+{
+	// Left encoder counts
+	uint16_t left_encoder_counts = buffer2unsigned_int(buffer, index);
+
+//	std::cout<<"\r\nleft Encoder:"<<left_encoder_counts ;
+	
+
+	if(encoder_counts_[LEFT] == -1 || left_encoder_counts == last_encoder_counts_[LEFT])	// First time, we need 2 to make it work!
+	{
+		encoder_counts_[LEFT] = 0;
+	}
+	else
+	{
+		encoder_counts_[LEFT] = (int)(left_encoder_counts - last_encoder_counts_[LEFT]);
+		
+		if(encoder_counts_[LEFT] > EYANTRA_MAX_ENCODER_COUNTS/10) encoder_counts_[LEFT] = encoder_counts_[LEFT] - EYANTRA_MAX_ENCODER_COUNTS;
+		if(encoder_counts_[LEFT] < -EYANTRA_MAX_ENCODER_COUNTS/10) encoder_counts_[LEFT] = EYANTRA_MAX_ENCODER_COUNTS + encoder_counts_[LEFT];
+	}
+	last_encoder_counts_[LEFT] = left_encoder_counts;
+	
+	return 0;
+}
+
+int psgrobot::OpenInterface::buffer2signed_int(unsigned char * buffer, int index)
+{
+	int16_t signed_int;
+	
+	memcpy(&signed_int, buffer+index, 2);
+	signed_int = ntohs(signed_int);
+	
+	return (int)signed_int;
+}
+
+int psgrobot::OpenInterface::buffer2unsigned_int(unsigned char * buffer, int index)
+{
+	uint16_t unsigned_int;
+
+	memcpy(&unsigned_int, buffer+index, 2);
+	unsigned_int = ntohs(unsigned_int);
+	
+	return (int)unsigned_int;
+}
+
+
+// *****************************************************************************
+// Calculate EYANTRA odometry
+void psgrobot::OpenInterface::calculateOdometry()
+{	
+	double dist = (encoder_counts_[RIGHT]*EYANTRA_PULSES_TO_M + encoder_counts_[LEFT]*EYANTRA_PULSES_TO_M) / 2.0; 
+//	double ang = (encoder_counts_[RIGHT]*EYANTRA_PULSES_TO_M - encoder_counts_[LEFT]*EYANTRA_PULSES_TO_M) / -EYANTRA_AXLE_LENGTH;
+	double ang = (encoder_counts_[RIGHT]*EYANTRA_PULSES_TO_M - encoder_counts_[LEFT]*EYANTRA_PULSES_TO_M) / EYANTRA_AXLE_LENGTH;
+
+	// Update odometry
+	this->odometry_yaw_ = NORMALIZE(this->odometry_yaw_ + ang);			// rad
+	this->odometry_x_ = this->odometry_x_ + dist*cos(odometry_yaw_);		// m
+	this->odometry_y_ = this->odometry_y_ + dist*sin(odometry_yaw_);		// m
+}
+
+
+// *****************************************************************************
+// Reset EYANTRA odometry
+void psgrobot::OpenInterface::resetOdometry()
+{
+	this->setOdometry(0.0, 0.0, 0.0);
+}
+
+// *****************************************************************************
+// Set EYANTRA odometry
+void psgrobot::OpenInterface::setOdometry(double new_x, double new_y, double new_yaw)
+{
+	this->odometry_x_ = new_x;
+	this->odometry_y_ = new_y;
+	this->odometry_yaw_ = new_yaw;
+}
+
+// *****************************************************************************
+// Set the digit LEDs
+int psgrobot::OpenInterface::setDigitLeds(unsigned char data)
+{
+//	unsigned char cmd_buffer[5];
+//	cmd_buffer[0] = (unsigned char)OI_OPCODE_DIGIT_LEDS_ASCII;
+//	cmd_buffer[1] = digit3;
+//	cmd_buffer[2] = digit2;
+//	cmd_buffer[3] = digit1;
+//	cmd_buffer[4] = digit0;
+	
+//	try{ serial_port_->write((char*)cmd_buffer, 5); }
+//	catch(sereal::Exception& e){ return(-1); }
+	return(0);
+}
+
+
+// EOF

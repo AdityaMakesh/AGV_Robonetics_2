@@ -1,0 +1,4 @@
+publish_debug_topics: true
+publish_tf: true
+reverse_tf: true
+use_mag: true

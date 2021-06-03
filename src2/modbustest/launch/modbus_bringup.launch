@@ -1,0 +1,5 @@
+<launch>
+<node pkg="modbustest" type="modbus_server_node" name="modbus_server_node">
+<rosparam file="$(find modbustest)/config/settings.yaml" command="load" />
+</node>
+</launch>

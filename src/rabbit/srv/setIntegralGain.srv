@@ -1,0 +1,4 @@
+int64 left_igain
+int64 right_igain
+---
+int8 result

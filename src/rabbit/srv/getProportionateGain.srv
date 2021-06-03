@@ -1,0 +1,4 @@
+int8 result
+---
+int16 left_gain
+int16 right_gain

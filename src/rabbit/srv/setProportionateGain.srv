@@ -1,0 +1,4 @@
+int64 left_pgain
+int64 right_pgain
+---
+int8 result

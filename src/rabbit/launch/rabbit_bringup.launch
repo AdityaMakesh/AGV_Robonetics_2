@@ -1,0 +1,5 @@
+<launch>
+<node pkg="rabbit" type="pnode" name="pnode">
+<rosparam file="$(find rabbit)/config/settings.yaml" command="load" />
+</node>
+</launch>

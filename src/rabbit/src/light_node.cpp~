@@ -1,0 +1,149 @@
+#include <ros/ros.h>
+#include <tf/transform_broadcaster.h>
+#include <nav_msgs/Odometry.h>			// odom
+#include <geometry_msgs/Twist.h>		// cmd_vel
+#include <rabbit/ServoMotor.h>
+#include <string>
+
+//  EYANTRA Dimensions
+#define EYANTRA_BUMPER_X_OFFSET		0.001
+#define EYANTRA_DIAMETER		0.051
+#define EYANTRA_AXLE_LENGTH		0.150
+
+#define  EYANTRA_MAX_LIN_VEL_MM_S	500
+#define  EYANTRA_MAX_ANG_VEL_RAD_S	2  
+#define  EYANTRA_MAX_RADIUS_MM		2000
+
+//!  EYANTRA max encoder counts
+#define  EYANTRA_MAX_ENCODER_COUNTS	30
+//!  EYANTRA encoder pulses to meter constant
+#define  EYANTRA_PULSES_TO_M		0.00544			//(2 * PI * Radius of wheel)/Encoder counts per revolution
+
+std::string port_a;
+std::string port_b;
+ServoMotor::RhinoInterface * rabbit_left;
+ServoMotor::RhinoInterface * rabbit_right;
+
+std::string prefixTopic(std::string prefix, char * name)
+{
+	std::string topic_name = prefix;
+	topic_name.append(name);
+	
+	return topic_name;
+}
+
+void cmdVelReceived(const geometry_msgs::Twist::ConstPtr& cmd_vel)
+{
+int left_speed_mm_s = (int)((cmd_vel->linear.x-EYANTRA_AXLE_LENGTH*cmd_vel->angular.z/2)*1e3);	// Left wheel velocity in mm/s
+int right_speed_mm_s = (int)((cmd_vel->linear.x+EYANTRA_AXLE_LENGTH*cmd_vel->angular.z/2)*1e3);	// Right wheel velocity in mm/s
+if(rabbit_left->writeMotorSpeed(left_speed_mm_s) == 1) {ROS_INFO("Left wheel velocity:%i",left_speed_mm_s);}
+if(rabbit_right->writeMotorSpeed(right_speed_mm_s) == 1) {ROS_INFO("Left wheel velocity:%i",right_speed_mm_s);}
+}
+
+
+int main(int argc, char** argv)
+{
+	ros::init(argc, argv, "rabbit_light_node");
+
+	ROS_INFO("Rabbit for ROS %.2f", NODE_VERSION);
+	
+	double last_x, last_y, last_yaw;
+	double vel_x, vel_y, vel_yaw;
+	double dt;
+
+	ros::NodeHandle n;
+
+	n.getParam("rabbit/port_a", port_a);
+	n.getParam("rabbit/port_b", port_b);
+
+//end of modification
+	
+	n.param<std::string>("rabbit/port_a", port_a, "/dev/ttyUSB0");
+	n.param<std::string>("rabbit/port_b", port_b, "/dev/ttyUSB1");
+	
+	rabbit_left = new ServoMotor::RhinoInterface(port_a.c_str());
+	rabbit_right = new ServoMotor::RhinoInterface(port_b.c_str());
+
+	ros::Publisher odom_pub = n.advertise<nav_msgs::Odometry>("/odom", 50);
+	tf::TransformBroadcaster odom_broadcaster;
+	ros::Subscriber cmd_vel_sub  = n.subscribe<geometry_msgs::Twist>("/cmd_vel", 1, cmdVelReceived);
+
+	if(( rabbit_left->openSerialPort() == 0)&&( rabbit_right->openSerialPort() == 0)) 
+		ROS_INFO("Connected to eyantra base robot.%s",port_a);
+	else
+	{
+		ROS_FATAL("Could not connect to eyantra base robot.");
+		ROS_BREAK();
+	}
+
+	ros::Time current_time, last_time;
+	current_time = ros::Time::now();
+	last_time = ros::Time::now();
+	
+	ros::Rate r(10.0);
+
+	while(n.ok())
+	{
+		current_time = ros::Time::now();
+		
+		//last_x = rabbit->odometry_x_;
+		//last_y = rabbit->odometry_y_;
+		//last_yaw = rabbit->odometry_yaw_;
+		
+		//if( rabbit->getSensorPackets(100) == -1) ROS_ERROR("Could not retrieve sensor packets.");
+		//else rabbit->calculateOdometry();
+		
+		dt = (current_time - last_time).toSec();
+		//vel_x = (rabbit->odometry_x_ - last_x)/dt;
+		//vel_y = (rabbit->odometry_y_ - last_y)/dt;
+		//vel_yaw = (rabbit->odometry_yaw_ - last_yaw)/dt;
+		
+		//since all odometry is 6DOF we'll need a quaternion created from yaw
+		geometry_msgs::Quaternion odom_quat;
+//		geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(rabbit->odometry_yaw_);
+
+
+		//first, we'll publish the transform over tf
+		geometry_msgs::TransformStamped odom_trans;
+		odom_trans.header.stamp = current_time;
+		odom_trans.header.frame_id = "odom";
+		odom_trans.child_frame_id = "base_link";
+		
+//		odom_trans.transform.translation.x = rabbit->odometry_x_;
+//		odom_trans.transform.translation.y = rabbit->odometry_y_;
+		odom_trans.transform.translation.z = 0.0;
+		odom_trans.transform.rotation = odom_quat;
+		
+		//send the transform
+		odom_broadcaster.sendTransform(odom_trans);
+		
+		//next, we'll publish the odometry message over ROS
+		nav_msgs::Odometry odom;
+		odom.header.stamp = current_time;
+		odom.header.frame_id = "odom";
+		
+		//set the position
+		//odom.pose.pose.position.x = rabbit->odometry_x_;
+		//odom.pose.pose.position.y = rabbit->odometry_y_;
+		odom.pose.pose.position.z = 0.0;
+		odom.pose.pose.orientation = odom_quat;
+		
+		//set the velocity
+		odom.child_frame_id = "base_link";
+		odom.twist.twist.linear.x = vel_x;
+		odom.twist.twist.linear.y = vel_y;
+		odom.twist.twist.angular.z = vel_yaw;
+		
+		//publish the message
+		odom_pub.publish(odom);
+
+		ros::spinOnce();
+		r.sleep();
+	}
+	
+	//rabbit->powerDown();
+	rabbit_left->closeSerialPort();
+	rabbit_right->closeSerialPort();
+}
+
+// EOF

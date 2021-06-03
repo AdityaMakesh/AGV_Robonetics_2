@@ -1,0 +1,5 @@
+<launch>
+<node pkg="rabbit_imu" type="imu_node" name="imu_node">
+<rosparam file="$(find rabbit_imu)/config/imu_rescale.yaml" command="load" />
+</node>
+</launch>

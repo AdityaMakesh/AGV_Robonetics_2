@@ -1,0 +1,102 @@
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <stdio.h>
+#include <string>
+#include <netinet/in.h>
+#include <sys/types.h>
+#include <rabbit/ServoMotor.h>
+#include <sstream>
+
+ServoMotor::RhinoInterface::RhinoInterface(const char * new_serial_port_)
+{
+	port_name_ = new_serial_port_;
+	serial_port_ = new sereal::SerealPort();
+}
+
+ServoMotor::RhinoInterface::~RhinoInterface()
+{
+	delete serial_port_;
+}
+
+//! Open the serial port
+int ServoMotor::RhinoInterface::openSerialPort()
+{
+	try{ serial_port_->open(port_name_.c_str(), 9600);}
+	catch(sereal::Exception& e){ return(-1); }
+
+return(0);
+}
+
+//! Close the serial port
+int ServoMotor::RhinoInterface::closeSerialPort()
+{
+	try{ serial_port_->close();}
+	catch(sereal::Exception& e){ return(-1); }
+
+return(0);
+}
+
+int ServoMotor::RhinoInterface::readMotorSpeed()
+{
+char data_buffer[packets_size_];
+
+std::stringstream ss;
+ss<<"S\r\n";
+std::string str = ss.str();
+
+	try{ serial_port_->write(str.c_str(), (int)str.size()); }
+	catch(sereal::Exception& e){ return(-1); }
+
+	try{ serial_port_->readLine(data_buffer, 100); }
+	catch(sereal::Exception& e){ return(-1); }
+
+return 0;
+}
+
+int ServoMotor::RhinoInterface::writeMotorSpeed(int speed)
+{
+std::stringstream ss;
+ss<<"S"<<speed<<"\r\n";
+std::string str = ss.str();
+
+try{ serial_port_->write(str.c_str(), (int)str.size()); }
+catch(sereal::Exception& e){ return(-1); }
+return 0;
+}
+
+int ServoMotor::RhinoInterface::setMotorMaxSpeed(int speed)
+{return 0;}
+
+int ServoMotor::RhinoInterface::readDamping()
+{return 0;}
+int ServoMotor::RhinoInterface::writeDamping(unsigned char value)
+{return 0;}
+int ServoMotor::RhinoInterface::loadFactorySettings()
+{return 0;}
+int ServoMotor::RhinoInterface::getPositionEncoder()
+{return 0;}
+int ServoMotor::RhinoInterface::setPositionEncoder(int position)
+{return 0;}
+int ServoMotor::RhinoInterface::getAbsolutePostion()
+{return 0;}
+int ServoMotor::RhinoInterface::setAbsolutePostion(int position)
+{return 0;}
+int ServoMotor::RhinoInterface::getRelativePostion()
+{return 0;}
+int ServoMotor::RhinoInterface::setRelativePostion(int position)
+{return 0;}
+int ServoMotor::RhinoInterface::getFeedbackGain()
+{return 0;}
+int ServoMotor::RhinoInterface::setFeedbackGain(unsigned char gain)
+{return 0;}
+int ServoMotor::RhinoInterface::getProportionateGain()
+{return 0;}
+int ServoMotor::RhinoInterface::setProportionateGain(unsigned char gain)
+{return 0;}
+int ServoMotor::RhinoInterface::getIntegralGain()
+{return 0;}
+int ServoMotor::RhinoInterface::setIntegralGain(unsigned char gain)
+{return 0;}
+int ServoMotor::RhinoInterface::autoCalibrate()
+{return 0;}

@@ -1,0 +1,155 @@
+<robot
+  name="rabbit">
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="0.151891275834869 -0.275187939951364 0.211836980117961"
+        rpy="0 0 0" />
+      <mass
+        value="4.7488720395053" />
+      <inertia
+        ixx="0.0485071262560934"
+        ixy="-1.38803666938514E-06"
+        ixz="5.81518221606172E-18"
+        iyy="0.0466491884989033"
+        iyz="-2.13050640094385E-06"
+        izz="0.067964552349255" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rabbit/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rabbit/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="Left_Motor">
+    <inertial>
+      <origin
+        xyz="0 6.38378239159465E-16 0.0127084120721804"
+        rpy="0 0 0" />
+      <mass
+        value="0.0403856509973404" />
+      <inertia
+        ixx="3.05766741659314E-05"
+        ixy="3.30702608372165E-20"
+        ixz="8.51743274833495E-21"
+        iyy="3.05766741659314E-05"
+        iyz="-1.03803200334245E-20"
+        izz="5.96938637404995E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rabbit/meshes/Left_Motor.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rabbit/meshes/Left_Motor.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="Left_Wheel"
+    type="continuous">
+    <origin
+      xyz="0.28089 -0.27519 0.18903"
+      rpy="1.5708 6.123E-17 1.5708" />
+    <parent
+      link="base_link" />
+    <child
+      link="Left_Motor" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      effort="0"
+      velocity="20" />
+  </joint>
+  <link
+    name="Right_Motor">
+    <inertial>
+      <origin
+        xyz="-5.55111512312578E-17 7.21644966006352E-16 -0.0092915879278196"
+        rpy="0 0 0" />
+      <mass
+        value="0.0403856509973403" />
+      <inertia
+        ixx="3.05766741659313E-05"
+        ixy="6.69156028330897E-20"
+        ixz="-2.79858265527976E-21"
+        iyy="3.05766741659313E-05"
+        iyz="-1.31400559988965E-20"
+        izz="5.96938637404994E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rabbit/meshes/Right_Motor.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rabbit/meshes/Right_Motor.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="Right_Wheel"
+    type="continuous">
+    <origin
+      xyz="0.00089128 -0.27519 0.18903"
+      rpy="1.5708 -1.1583 -1.5708" />
+    <parent
+      link="base_link" />
+    <child
+      link="Right_Motor" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      effort="0"
+      velocity="20" />
+  </joint>
+</robot>
